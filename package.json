@@ -1,5 +1,5 @@
 {
-  "name": "negomongoose",
+  "name": "neomongoose",
   "description": "Mongoose plugin that working with mongoose and neo4j together",
   "version": "1.0.1",
   "author": "Diego Conti Santeri Tonini <diegosanteri@gmail.com>",
@@ -10,7 +10,7 @@
   "keywords": ["mongodb", "mongoose", "neo4j", "neo4jdriver", "plugin"],
   "repository": {
     "type": "git",
-    "url": "git://github.com/diego_santeri/neomongo"
+    "url": "git://github.com/diego_santeri/neomongoose"
   },
   "dependencies": {
     "mongoose": ">= 3.0",
