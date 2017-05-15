@@ -290,7 +290,7 @@ function neomongoosePlugin(schema, options) {
 	   		operation = 'CREATE(n:@label@ @data@) RETURN n';
 	   		try{
 	   			operation = operation.replace('@label@', config.labels.nodeLabel)
-	   									.replace('@data@', convertJsonToCypher(config.data))
+	   									.replace('@data@', convertJsonToCypher(config.data.nodeData))
 	   		}
 				catch(e){
 					throw {error: 'Unexpected error has happened'};
@@ -301,7 +301,7 @@ function neomongoosePlugin(schema, options) {
 		   		operation = "MERGE (n:@label@ {_id: '@id@'}) SET n=@data@ RETURN n";
 		   		operation = operation.replace('@label@', config.labels.nodeLabel)
 		   									.replace('@id@', config.data._id)
-		   									.replace('@data@', convertJsonToCypher(config.data));
+		   									.replace('@data@', convertJsonToCypher(config.data.nodeData));
 				}
 				catch(e){
 					throw {error: 'Unexpected error has happened'};
@@ -335,13 +335,18 @@ function neomongoosePlugin(schema, options) {
 	   			}
 	   		}
 
+	   		var relationName = config.relationName;
+	   		if(relationName === undefined || relationName === null) {
+	   			relationName = ''
+	   		}
+
 	   		try {
 		   		if(config.isMultiDelete) {
 		   			operation = "MATCH (p)@leftDirection@-[r:@relationName@]-@rightDirection@() WHERE p._id = '@_id@' DELETE r";
 		   			operation = operation.replace('@_id@', config.data.parentNode._id)
 		   										.replace('@leftDirection@', leftDirection)
 		   										.replace('@rightDirection@', rightDirection)
-		   										.replace('@relationName@', config.relationName);
+		   										.replace('@relationName@', relationName);
 		   		}
 		   		else {
 		   			console.log(config.data.parentNode)
@@ -350,7 +355,7 @@ function neomongoosePlugin(schema, options) {
 		   			operation = "MATCH (a:@parentLabel@ @parentNode@)@leftDirection@-[r:@relationName@]-@rightDirection@(b:@sonLabel@ @sonNode@) DELETE r";
 		   			operation = operation.replace('@leftDirection@', leftDirection)
 		   										.replace('@rightDirection@', rightDirection)
-		   										.replace('@relationName@', config.relationName)
+		   										.replace('@relationName@', relationName)
 		   										.replace('@parentNode@', convertJsonToCypher(config.data.parentNode))
 		   										.replace('@sonNode@', convertJsonToCypher(config.data.sonNode))
 		   										.replace('@parentLabel@', config.labels.parentLabel)
@@ -385,13 +390,18 @@ function neomongoosePlugin(schema, options) {
 	   		else {
 	   			relationNode = convertJsonToCypher(relationNode);
 	   		}
+
+	   		var relationName = config.relationName;
+	   		if(relationName === undefined || relationName === null) {
+	   			relationName = ''
+	   		}
 	   		
 	   		
 	   		operation = 'MATCH(m:@parentLabel@ @parentNode@), (n:@sonLabel@ @sonNode@) MERGE(m) @leftDirection@-[:@relationName@ @relationNode@]-@rightDirection@ (n) RETURN m,n';
 	   		
 
 	   		try{
-	   			operation = operation.replace('@relationName@', config.relationName)
+	   			operation = operation.replace('@relationName@', relationName)
 	   										.replace('@relationNode@', relationNode)
 												.replace('@leftDirection@', leftDirection)
 												.replace('@rightDirection@', rightDirection)
@@ -443,6 +453,11 @@ function neomongoosePlugin(schema, options) {
    	var nodeInfo = isValidNode(node);
    	if(!nodeInfo.status){
    		return nodeInfo;
+   	}
+
+
+   	if(node.data.nodeData === undefined || node.data.nodeData === null) {
+   		return {status: false, field: 'nodeData'};
    	}
 
    	if(node.labels.nodeLabel === undefined || node.labels.nodeLabel === null || node.labels.nodeLabel === '') {
