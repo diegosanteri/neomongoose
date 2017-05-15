@@ -38,7 +38,7 @@ function neomongoosePlugin(schema, options) {
 			}
 
 			node.operation = 'insert';
-			node.data._id = documentInserted.id;
+			node.data.nodeData._id = documentInserted.id;
 
 			var nodeString = ''
 			try{
@@ -86,7 +86,7 @@ function neomongoosePlugin(schema, options) {
 			}
 
 			node.operation = 'update';
-			node.data._id = document._id;
+			node.data.nodeData._id = document._id;
 
 			var nodeString = ''
 			try{
@@ -129,7 +129,7 @@ function neomongoosePlugin(schema, options) {
 
 			var node = {data: {}};
 			node.operation = 'removeNode';
-			node.data._id = document._id;
+			node.data.nodeData._id = document._id;
 
 			var nodeString = ''
 			try{
@@ -300,7 +300,7 @@ function neomongoosePlugin(schema, options) {
 	   		try {
 		   		operation = "MERGE (n:@label@ {_id: '@id@'}) SET n=@data@ RETURN n";
 		   		operation = operation.replace('@label@', config.labels.nodeLabel)
-		   									.replace('@id@', config.data._id)
+		   									.replace('@id@', config.data.nodeData._id)
 		   									.replace('@data@', convertJsonToCypher(config.data.nodeData));
 				}
 				catch(e){
@@ -311,7 +311,7 @@ function neomongoosePlugin(schema, options) {
 	   	else if(config.operation === 'removeNode') {
 	   		try{
 	   			operation = "MATCH (p)-[r]-() WHERE p._id = '@_id@' DELETE r, p";
-	   			operation = operation.replace('@_id@', config.data._id);
+	   			operation = operation.replace('@_id@', config.data.nodeData._id);
 	   		}
 				catch(e){
 					throw {error: 'Unexpected error has happened'};
@@ -418,7 +418,6 @@ function neomongoosePlugin(schema, options) {
 	   	else {
 	   		throw "Unexpected error has happened." + config.operation + "  operation doesn't exist";
 	   	}
-	   	
 	   	return operation;
    }
 
