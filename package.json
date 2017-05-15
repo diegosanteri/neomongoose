@@ -10,7 +10,7 @@
   "keywords": ["mongodb", "mongoose", "neo4j", "neo4jdriver", "plugin"],
   "repository": {
     "type": "git",
-    "url": "git://github.com/diego_santeri/neomongoose"
+    "url": "https://github.com/diegosanteri/neomongoose"
   },
   "dependencies": {
     "mongoose": ">= 3.0",
