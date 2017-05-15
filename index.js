@@ -10,7 +10,7 @@ var jju = require('jju')
 
 function neomongoosePlugin(schema, options) {
 
-   var driver = neo4j.driver(options.neo4j.connectURI, neo4j.auth.basic(options.neo4j.user, options.neo4j.password));
+   var driver = neo4j.driver(options.connectURI, neo4j.auth.basic(options.user, options.password));
    
 
    schema.statics.insertDocNode = function insertDocNode(config, callback) {
