@@ -98,7 +98,7 @@ function neomongoosePlugin(schema, options) {
 
 			neo4jExec(nodeString, function(node){
 					session.close();
-					callback(err, {message: "Node has updated"});
+					callback(err, {message: "Node was updated"});
 				}, function(err){
 					session.close();
 					callback(err, undefined, undefined);
@@ -141,7 +141,7 @@ function neomongoosePlugin(schema, options) {
 
 			neo4jExec(nodeString, function(node){
 					session.close();
-					callback(err, {message: "Node has deleted"});
+					callback(err, {message: "Node was deleted"});
 				}, function(err){
 					session.close();
 					callback(err, undefined, undefined);
@@ -218,7 +218,7 @@ function neomongoosePlugin(schema, options) {
 					}
 
 					neo4jExec(nodeString, function(node){
-						callback(err, {"Message": "Node has disassociate with success"});
+						callback(err, {"Message": "Node has disassociated with success"});
 					}, function(err){
 						callback(err);
 					})
@@ -252,7 +252,7 @@ function neomongoosePlugin(schema, options) {
 					}
 
 					neo4jExec(nodeString, function(node){
-						callback(err, {"Message": "Node has disassociate with success"});
+						callback(err, {"Message": "Node has disassociated with success"});
 					}, function(err){
 						callback(err);
 					})
@@ -402,18 +402,70 @@ function neomongoosePlugin(schema, options) {
 
 	   		try{
 	   			operation = operation.replace('@relationName@', relationName)
-	   										.replace('@relationNode@', relationNode)
-												.replace('@leftDirection@', leftDirection)
-												.replace('@rightDirection@', rightDirection)
-												.replace('@parentLabel@', config.labels.parentLabel)
-												.replace('@sonLabel@', config.labels.sonLabel)
-												.replace('@parentNode@', convertJsonToCypher(config.data.parentNode))
-												.replace('@sonNode@', convertJsonToCypher(config.data.sonNode));
+	   									.replace('@relationNode@', relationNode)
+										.replace('@leftDirection@', leftDirection)
+										.replace('@rightDirection@', rightDirection)
+										.replace('@parentLabel@', config.labels.parentLabel)
+										.replace('@sonLabel@', config.labels.sonLabel)
+										.replace('@parentNode@', convertJsonToCypher(config.data.parentNode))
+										.replace('@sonNode@', convertJsonToCypher(config.data.sonNode));
 												
 				}
 				catch(e){
 					throw {error: 'Unexpected error has happened'};
 				}
+	   	}
+	   	else if (config.operation = 'getRelationships') {
+
+	   		var direction = config.direction === undefined ? '' : config.direction;
+	   		var leftDirection = '';
+	   		var rightDirection = '';
+
+	   		if(direction !== '<' && direction !== '>' && direction !== ''){
+	   			throw {error: "Relation direction is invalid"};
+	   		}
+	   		else {
+	   			if(direction === '<') {
+	   				leftDirection = direction;
+	   			}
+	   			else {
+	   				rightDirection = direction;
+	   			}
+	   		}
+
+	   		var depth = config.depth === undefined ? 0 : config.depth;
+
+	   		var page = config.page === undefined ? 0 : config.page;
+
+	   		var recordsPerPage = config.recordsPerPage === undefined ? 5 : config.recordsPerPage;
+
+	   		var recordsToSkiṕ = page * recordsPerPage;
+
+	   		var depthReplace = depth == 0 ? '' : ('1..' + depth - 1);
+
+	   		var pathLength = (depth == 0 ? 0 : depth - 1);
+
+	   		operation = "MATCH (n)@directionLeft@-[r]-@directionRight@(m) WHERE n._id='@_id@' " +
+	   		"WITH DISTINCT m, r, n ORDER BY m._id SKIP @skip@ LIMIT @recordsPerPage@ " +
+	   		"OPTIONAL MATCH p=((m)<-[*@depth@]-(q)) " +
+	   		"WHERE NOT exists((q)<-[]-()) OR length(p)=@pathLength@ " +
+	   		"RETURN nodes(p), relationships(p), m, r, n";
+
+
+	   		try {
+	   		operation = operation.replace("@directionTo", leftDirection)
+	   								 .replace("@directionFrom", rightDirection)
+	   								 .replace("@_id", _id)
+	   								 .replace("@skip", recordsToSkiṕ)
+	   								 .replace("@recordsPerPage", recordsPerPage)
+	   							   	 .replace("@depth", depthReplace)
+	   								 .replace("@pathLength", pathLength);
+
+	   		}
+	   		catch (e) {
+	   			throw {error: 'Unexpected error has happened'};
+	   		}
+
 	   	}
 	   	else {
 	   		throw "Unexpected error has happened." + config.operation + "  operation doesn't exist";
@@ -498,6 +550,140 @@ function neomongoosePlugin(schema, options) {
 
    	return {status: true};
    }
+
+
+   schema.statics.getRelationships = function getRelationships(config, callback) {
+
+   	var __self = this;
+   	var document = config.document;
+
+   	documentInfo = isValidDocument(document);
+
+   	if (!documentInfo) {
+   		return callback({error: 'Invalid config', field: documentInfo.field});
+   	}
+
+   	if (document._id === '' || document._id === null || document._id === undefined) {
+   		return callback({error: 'Invalid config', field: '_id'});
+   	}
+
+   	config.operation = 'getRelationships';
+
+   	var query;
+   	try {
+   		query = queryString(config); 
+   	} catch (err) {
+   		return callback(err);
+   	}
+
+    var session = driver.session();
+
+    session
+    .run(query,{})
+    .then(function(result) {
+      session.close();
+
+      var records = result.records;
+      var ids = [];
+      var Tree = {};
+
+      for (var i = 0; i < records.length; i++) {
+
+        var subTree = [];
+        subTree.push(records[i]._fields[4].properties._id);
+
+        if (records[i]._fields[0]) {
+          var fields = records[i]._fields[0];
+          for (var j = 0; j < fields.length; j++) {
+            subTree.push(fields[j].properties._id)
+          }
+        } else {
+          subTree.push(records[i]._fields[2].properties._id);
+        }
+
+        arrayToNested(subTree, Tree);
+
+        ids = ids.concat(subTree);
+      }
+
+      __self.find({_id: ids}, function(err, docs) {
+        
+        if (err) {
+         return callback(err, null);
+        }
+
+
+        try {
+        populateTreeData(Tree, docs);
+        } catch (err) {
+          return callback(err, null);
+        } 
+        return callback(null, Tree);
+        
+      });
+
+    })
+    .catch(function(error) {
+      session.close();
+      return callback(error, null);
+    });
+  }
+
+
+  function isInteger(data) {
+    return (typeof data === 'number' && (data % 1)===0)
+  }
+
+
+  function arrayObjectIndexOf(myArray, searchTerm, property) {
+    for(var i = 0, len = myArray.length; i < len; i++) {
+        if (myArray[i][property] === searchTerm) return i;
+    }
+    return -1;
+  }
+
+
+  function arrayToNested(array, object) {
+
+    var o = object
+    for(var i = 0; i < array.length-1; i++) {
+
+      if (!o._id) {
+        try {
+          o._id = {};
+          o._id = array[i];
+        } catch (err) {
+          console.log(err);
+        }
+      }
+    
+      if (!o.relationships) {
+        o.relationships = [];
+      }
+
+      if (arrayObjectIndexOf(o.relationships, array[i + 1], "_id") != -1) {
+        o = o["relationships"][arrayObjectIndexOf(o.relationships, array[i+1], "_id")];
+      } else {
+        o.relationships.push({_id: array[i + 1]});
+        o = o.relationships[o.relationships.length -1];
+      }
+    }
+  }
+
+
+  function populateTreeData(Tree, data) {
+
+    var objectData = {};
+
+    objectData = data[arrayObjectIndexOf(data, Tree._id, "_id")];
+    Object.assign(Tree, objectData);
+
+    if (Tree.relationships) {
+      for (var i = 0; i < Tree.relationships.length; i++) {
+        populateTreeData(Tree.relationships[i], data);  
+      }
+    }
+  }
 }
 
 /**
