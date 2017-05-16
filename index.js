@@ -417,7 +417,7 @@ function neomongoosePlugin(schema, options) {
 	   	}
 	   	else if (config.operation = 'getRelationships') {
 
-	   		var direction = config.direction === undefined ? '' : config.direction;
+	   		var direction = config.direction === undefined ? '<' : config.direction;
 	   		var leftDirection = '';
 	   		var rightDirection = '';
 
@@ -453,13 +453,13 @@ function neomongoosePlugin(schema, options) {
 
 
 	   		try {
-	   		operation = operation.replace("@directionTo", leftDirection)
-	   								 .replace("@directionFrom", rightDirection)
-	   								 .replace("@_id", _id)
-	   								 .replace("@skip", recordsToSkiṕ)
-	   								 .replace("@recordsPerPage", recordsPerPage)
-	   							   	 .replace("@depth", depthReplace)
-	   								 .replace("@pathLength", pathLength);
+	   		operation = operation.replace("@directionLeft@", leftDirection)
+	   								 .replace("@directionRight@", rightDirection)
+	   								 .replace("@_id@", config.document._id)
+	   								 .replace("@skip@", recordsToSkiṕ)
+	   								 .replace("@recordsPerPage@", recordsPerPage)
+	   							   	 .replace("@depth@", depthReplace)
+	   								 .replace("@pathLength@", pathLength);
 
 	   		}
 	   		catch (e) {
@@ -555,7 +555,12 @@ function neomongoosePlugin(schema, options) {
    schema.statics.getRelationships = function getRelationships(config, callback) {
 
    	var __self = this;
-   	var document = config.document;
+   	try {
+   		var document = config.document;
+   	}
+   	catch {
+   		return callback({error: 'Invalid config', field: documentInfo.field});
+   	}
 
    	documentInfo = isValidDocument(document);
 

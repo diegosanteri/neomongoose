@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "author": "Diego Conti Santeri Tonini <diegosanteri@gmail.com>",
   "contributors": [{
-    "name": "Phillip Cristain Beck",
+    "name": "Phillip Cristian Beck",
     "email": "phillipcbeck@gmail.com"
   }],
   "keywords": ["mongodb", "mongoose", "neo4j", "neo4jdriver", "plugin"],
