@@ -12,5 +12,5 @@ db.on('error', function() {
 	console.log('Error connecting to MongoDB')
 });
 db.once('open', function() {
-	require('./test_performance');
+	require('./test1');
 });
