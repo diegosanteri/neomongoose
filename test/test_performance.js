@@ -18,6 +18,7 @@ productSchema.plugin(neomongoose, config.neo4j);
 var productModel = mongoose.model('Product', productSchema);
 
 var i = 0;
+var j = 0;
 var docs = [];
 
 function testCreate(done, numRecords) {
@@ -28,17 +29,61 @@ function testCreate(done, numRecords) {
 		docs.push(doc);
 		if (i < numRecords) {
 			i++;
-			testCreate(done);
+			testCreate(done, numRecords);
 		}
 		else {
-			done();
+			done(numRecords +' saves');
 		}
 	});
 }
 
-function done() {
-	console.timeEnd('1000 saves');
+function doneCreate(label) {
+	console.timeEnd(label);
+
+	console.time(numAssociations + ' associations');
+	testAssociate(doneAssociate, numAssociations);
 }
 
-console.time('1000 saves');
-testCreate(done);
+function testAssociate(done, depth) {
+	var docnode = new docNode();
+
+	docnode.node.data.parentNode = docs[j];
+	docnode.node.data.sonNode = docs[j+1];
+
+	productModel.associateNodes(docnode, function(err, doc) {
+		if (j < depth) {
+			j++;
+			testAssociate(done, depth);
+		}
+		else {
+			done(depth +' associations');
+		}
+	});
+}
+
+function doneAssociate(label) {
+	console.timeEnd(label);
+
+	var searchConfig = {
+		depth: 0,
+		direction: '<',
+		recordsPerPage: 2,
+		page: 0,
+		document : {}
+	};
+
+	searchConfig.document = docs[0];
+
+	console.time('fetch tree');
+	productModel.getRelationships(searchConfig, function(err, Tree) {
+		if(err) {
+			console.log(err);
+		}
+		console.timeEnd('fetch tree')
+	});
+}
+
+var numCreates = 1000;
+var numAssociations = 200;
+console.time(numCreates + ' saves');
+testCreate(doneCreate, numCreates);

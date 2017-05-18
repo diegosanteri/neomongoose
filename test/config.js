@@ -16,12 +16,12 @@ function DocNode() {
 			relationNode: {}
 		}, 
 		isMultiDelete: false, 
-		direction: '', 
-		relationName: '',
+		direction: '<', 
+		relationName: 'TESTING',
 		labels:{
 			nodeLabel:'Product', 
-			parentLabel:'', 
-			sonLabel:'' 
+			parentLabel:'Product', 
+			sonLabel:'Product' 
 		}
 	},
 	this.document= {}
