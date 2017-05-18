@@ -3,22 +3,34 @@
   "description": "Mongoose plugin that working with mongoose and neo4j together",
   "version": "0.0.1",
   "author": "Diego Conti Santeri Tonini <diegosanteri@gmail.com>",
-  "contributors": [{
-    "name": "Phillip Cristian Beck",
-    "email": "phillipcbeck@gmail.com"
-  }],
-  "keywords": ["mongodb", "mongoose", "neo4j", "neo4jdriver", "plugin"],
+  "contributors": [
+    {
+      "name": "Phillip Cristian Beck",
+      "email": "phillipcbeck@gmail.com"
+    }
+  ],
+  "keywords": [
+    "mongodb",
+    "mongoose",
+    "neo4j",
+    "neo4jdriver",
+    "plugin"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/diegosanteri/neomongoose"
   },
   "dependencies": {
+    "jju": "^1.3.0",
     "mongoose": ">= 3.0",
-    "neo4j-driver": "^1.3.0",
-    "jju": "^1.3.0"
+    "neo4j-driver": "^1.3.0"
   },
   "license": "MIT",
   "engine": {
     "node": ">= 0.10"
+  },
+  "devDependencies": {
+    "chai": "^3.5.0",
+    "mocha": "^3.4.1"
   }
 }
