@@ -276,6 +276,7 @@ describe('Create Relationship', function() {
 
 			doc.node.data.parentNode = docnode[0];
 			doc.node.data.sonNode = docnode[1];
+			doc.node.relationName = '';
 
 			productModel.associateNodes(doc, function(err, obj) {
 				expect(err).to.eql({ error: 'Invalid config', field: 'relationName' });
@@ -288,7 +289,7 @@ describe('Create Relationship', function() {
 			var doc = new docNode();
 			doc.node.data.parentNode = docnode[0];
 			doc.node.data.sonNode = docnode[1];
-			doc.node.relationName = 'Testing'
+			doc.node.labels.parentLabel = '';
 
 			productModel.associateNodes(doc, function(err, obj) {
 				expect(err).to.eql({ error: 'Invalid config', field: 'parentLabel' });
@@ -300,8 +301,7 @@ describe('Create Relationship', function() {
 			var doc = new docNode();
 			doc.node.data.parentNode = docnode[0];
 			doc.node.data.sonNode = docnode[1];
-			doc.node.relationName = 'Testing';
-			doc.node.labels.parentLabel = 'Product';
+			doc.node.labels.sonLabel = '';
 
 			productModel.associateNodes(doc, function(err, obj) {
 				expect(err).to.eql({ error: 'Invalid config', field: 'sonLabel' });

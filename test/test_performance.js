@@ -15,7 +15,7 @@ var productSchema = new Schema({
 
 productSchema.plugin(neomongoose, config.neo4j);
 
-var productModel = mongoose.model('Product', productSchema);
+var productModel = mongoose.model('Products', productSchema);
 
 var i = 0;
 var j = 0;
