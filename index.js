@@ -615,8 +615,6 @@ function neomongoosePlugin(schema, options) {
 		}
 
 		var session = driver.session();
-
-		console.log(query);
 		
 		session
 		.run(query,{})
@@ -637,13 +635,31 @@ function neomongoosePlugin(schema, options) {
 				var subTree = [];
 				subTree.push({_id: records[i]._fields[4].properties._id});
 
+				var relationship = {};
+				relationship._id = records[i]._fields[2].properties._id;
+				if (records[i]._fields[3].properties) {
+					relationship.relationProperties = normalizeProperties(records[i]._fields[3].properties);
+				}
+				console.log(relationship);
+				subTree.push(relationship);
+
 				if (records[i]._fields[0]) {
 					var fields = records[i]._fields[0];
-					for (var j = 0; j < fields.length; j++) {
-						subTree.push({_id: fields[j].properties._id});
+					for (var j = 1; j < fields.length; j++) {
+						var relationship = {};
+						relationship._id = fields[j].properties._id;
+						if (records[i]._fields[1][j-1].properties) {
+							relationship.relationProperties = normalizeProperties(records[i]._fields[1][j-1].properties);
+						}
+						subTree.push(relationship);
 					}
 				} else {
-					subTree.push({_id: records[i]._fields[2].properties._id});
+					var relationship = {};
+					relationship._id = records[i]._fields[2].properties._id;
+					if (records[i]._fields[3].properties) {
+						relationship.relationProperties = normalizeProperties(records[i]._fields[3].properties);
+					}
+					subTree.push(relationship);
 				}
 
 				arrayToNested(subTree, Tree);
@@ -688,9 +704,9 @@ function neomongoosePlugin(schema, options) {
 
 			if (!o._id) {
 				try {
-					o._id = {};
-					o._id = array[i];
-				} catch (err) {
+					o._id = array[i]._id;
+				}
+				catch (err) {
 					console.log(err);
 				}
 			}
@@ -702,7 +718,7 @@ function neomongoosePlugin(schema, options) {
 			if (arrayObjectIndexOf(o.relationships, array[i + 1], "_id") != -1) {
 				o = o["relationships"][arrayObjectIndexOf(o.relationships, array[i+1], "_id")];
 			} else {
-				o.relationships.push({_id: array[i + 1]});
+				o.relationships.push(array[i + 1]);
 				o = o.relationships[o.relationships.length -1];
 			}
 		}
@@ -720,6 +736,24 @@ function neomongoosePlugin(schema, options) {
 				populateTreeData(Tree.relationships[i], data);
 			}
 		}
+	}
+
+
+	function normalizeProperties(data) {
+		var keys = Object.keys(data);
+
+		var obj = {};
+
+		for (var i = 0; i < keys.length; i++) {
+			if (data[keys[i]].low) {
+				obj[keys[i]] = data[keys[i]].low;
+			}
+			else {
+				obj[keys[i]] = data[keys[i]]
+			}
+		}
+
+		return obj;
 	}
 }
 
