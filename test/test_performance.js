@@ -49,6 +49,7 @@ function testAssociate(done, depth) {
 
 	docnode.node.data.parentNode = docs[j];
 	docnode.node.data.sonNode = docs[j+1];
+	docnode.node.data.relationNode.quantity = j;
 
 	productModel.associateNodes(docnode, function(err, doc) {
 		if (j < depth) {
@@ -74,16 +75,19 @@ function doneAssociate(label) {
 
 	searchConfig.document = docs[0];
 
+	console.log(docs[0]._id);
+
 	console.time('fetch tree');
 	productModel.getRelationships(searchConfig, function(err, Tree) {
 		if(err) {
 			console.log(err);
 		}
-		console.timeEnd('fetch tree')
+		console.timeEnd('fetch tree');
+		console.log(JSON.stringify(Tree));
 	});
 }
 
-var numCreates = 1000;
-var numAssociations = 200;
+var numCreates = 10;
+var numAssociations = 4;
 console.time(numCreates + ' saves');
 testCreate(doneCreate, numCreates);
