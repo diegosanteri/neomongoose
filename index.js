@@ -53,7 +53,11 @@ function neomongoosePlugin(schema, options) {
 
 			neo4jExec(nodeString, function(obj){
 				if(obj.summary.counters._stats.nodesCreated != 1) {
-					throw {error: 'Unexpected error when saving to neo4j'};
+
+
+					self.remove({_id: documentInserted._id}, function(err) {
+						callback({error: 'Unexpected error'});
+					});
 				}
 				callback(null, documentInserted);
 			}, function(err){
@@ -623,7 +627,7 @@ function neomongoosePlugin(schema, options) {
 
 			var records = result.records;
 
-			if (!records) {
+			if (!records || records.length == 0) {
 				return callback('No Relationships Found');
 			}
 
@@ -640,7 +644,6 @@ function neomongoosePlugin(schema, options) {
 				if (records[i]._fields[3].properties) {
 					relationship.relationProperties = normalizeProperties(records[i]._fields[3].properties);
 				}
-				console.log(relationship);
 				subTree.push(relationship);
 
 				if (records[i]._fields[0]) {
@@ -653,19 +656,14 @@ function neomongoosePlugin(schema, options) {
 						}
 						subTree.push(relationship);
 					}
-				} else {
-					var relationship = {};
-					relationship._id = records[i]._fields[2].properties._id;
-					if (records[i]._fields[3].properties) {
-						relationship.relationProperties = normalizeProperties(records[i]._fields[3].properties);
-					}
-					subTree.push(relationship);
 				}
 
 				arrayToNested(subTree, Tree);
 
 				ids = ids.concat(subTree);
 			}
+
+			console.log('ids: ' + JSON.stringify(ids));
 
 			__self.find({_id: ids}, function(err, docs) {
 				if (err) {
@@ -729,7 +727,10 @@ function neomongoosePlugin(schema, options) {
 		var objectData = {};
 
 		objectData = data[arrayObjectIndexOf(data, Tree._id, "_id")];
-		Object.assign(Tree, objectData._doc);
+
+		if (objectData) {
+			Object.assign(Tree, objectData._doc);
+		}
 
 		if (Tree.relationships) {
 			for (var i = 0; i < Tree.relationships.length; i++) {
