@@ -1,0 +1,120 @@
+0 info it worked if it ends with ok
+1 verbose cli [ '/home/diego/.nvm/versions/node/v7.7.2/bin/node',
+1 verbose cli   '/home/diego/.nvm/versions/node/v7.7.2/bin/npm',
+1 verbose cli   'publish' ]
+2 info using npm@4.1.2
+3 info using node@v7.7.2
+4 verbose publish [ '.' ]
+5 silly cache add args [ '.', null ]
+6 verbose cache add spec .
+7 silly cache add parsed spec Result {
+7 silly cache add   raw: '.',
+7 silly cache add   scope: null,
+7 silly cache add   escapedName: null,
+7 silly cache add   name: null,
+7 silly cache add   rawSpec: '.',
+7 silly cache add   spec: '/home/diego/Documentos/projetos/npm/neomongoose',
+7 silly cache add   type: 'directory' }
+8 verbose addLocalDirectory /home/diego/.npm/neomongoose/0.0.5/package.tgz not in flight; packing
+9 verbose correctMkdir /home/diego/.npm correctMkdir not in flight; initializing
+10 info lifecycle neomongoose@0.0.5~prepublish: neomongoose@0.0.5
+11 silly lifecycle neomongoose@0.0.5~prepublish: no script for prepublish, continuing
+12 info lifecycle neomongoose@0.0.5~prepare: neomongoose@0.0.5
+13 silly lifecycle neomongoose@0.0.5~prepare: no script for prepare, continuing
+14 verbose tar pack [ '/home/diego/.npm/neomongoose/0.0.5/package.tgz',
+14 verbose tar pack   '/home/diego/Documentos/projetos/npm/neomongoose' ]
+15 verbose tarball /home/diego/.npm/neomongoose/0.0.5/package.tgz
+16 verbose folder /home/diego/Documentos/projetos/npm/neomongoose
+17 verbose addLocalTarball adding from inside cache /home/diego/.npm/neomongoose/0.0.5/package.tgz
+18 verbose correctMkdir /home/diego/.npm correctMkdir not in flight; initializing
+19 silly cache afterAdd neomongoose@0.0.5
+20 verbose afterAdd /home/diego/.npm/neomongoose/0.0.5/package/package.json not in flight; writing
+21 verbose correctMkdir /home/diego/.npm correctMkdir not in flight; initializing
+22 verbose afterAdd /home/diego/.npm/neomongoose/0.0.5/package/package.json written
+23 silly publish { name: 'neomongoose',
+23 silly publish   description: 'Mongoose plugin that working with mongoose and neo4j together',
+23 silly publish   version: '0.0.5',
+23 silly publish   author:
+23 silly publish    { name: 'Diego Conti Santeri Tonini',
+23 silly publish      email: 'diegosanteri@gmail.com' },
+23 silly publish   contributors:
+23 silly publish    [ { name: 'Phillip Cristian Beck',
+23 silly publish        email: 'phillipcbeck@gmail.com' } ],
+23 silly publish   keywords: [ 'mongodb', 'mongoose', 'neo4j', 'neo4jdriver', 'plugin' ],
+23 silly publish   repository:
+23 silly publish    { type: 'git',
+23 silly publish      url: 'git+https://github.com/diegosanteri/neomongoose.git' },
+23 silly publish   dependencies: { jju: '^1.3.0', mongoose: '>= 3.0', 'neo4j-driver': '^1.3.0' },
+23 silly publish   license: 'MIT',
+23 silly publish   engine: { node: '>= 0.10' },
+23 silly publish   devDependencies: { chai: '^3.5.0', mocha: '^3.4.1' },
+23 silly publish   readme: '# neomongoose\n\n## What\'s Neomongoose?\n\nMongoose plugin that working with mongoose and neo4j together\n\n## Install\n\n```sh\n# install Neomongoose\nnpm install --save neomongoose\n\n```\n\n## Options\n\nConnect to neo4j database\n\n- `--connectURI` - Connection URL.\n- `--user` - Database user.\n- `--password` - Database password.\n\nOptions operations\n```sh\n{\n  node: {\n    data:{\n      nodeData: {},// for only one node,\n      parentNode: {}, //\n      sonNode: {},//\n      relationNode: {}//optional\n    }, \n    isMultiDelete: false, // default is false  \n    direction: \'\', // default is \'\', This options has thre options: \'\', \'<\' and \'>\'\n    relationName: \'\',// optional\n    labels:{\n      nodeLabel:\'\', // for only one node,\n      parentLabel:\'\', //\n      sonLabel:\'\' //\n    }\n  }\n}\n```\n\n## Usage\n\nAdd plugin in mongoose\n\n```sh\nvar mongoose = require(\'mongoose\'),\nSchema = mongoose.Schema\nneomongoosePlugin = require(\'../module/neomongoose\');\n\nvar UserSchema = new Schema({\n  username: {type:String, required: true},\n  name: {type:String, required: true}\n});\n\nUserSchema.plugin(neomongoosePlugin, {connectURI: \'bolt://localhost\', user: \'neo4j\', password:\'q1w2e3www\'})\n\nvar user = mongoose.model(\'user\', UserSchema);\n\nmodule.exports = {\n  User : user\n};\n```\n\nInsert data\n```sh\nvar userModel = require(\'./model/user\').User;\n\nvar document = req.body;\nvar node = {data:{nodeData: {username: req.body.username}}, labels:{nodeLabel: \'user\'} }\n\nuserModel.insertDocNode({document: document, node:node}, function(err, document, node){\n\t\t\t\n  if(err) {\n    res.status(500)\n    res.json(err)\n    return;\n  }\n\n  res.json(document)\n\n})\n```\n\nUpdate data\n```sh\nvar userModel = require(\'./model/user\').User;\n\nvar document = req.body;\nvar node = {data:{nodeData: {username: req.body.username}}, labels:{nodeLabel: \'user\'} }\n\nuserModel.updateDocNode({document: document, node:node}, function(err, document, node){\n\t\t\t\n  if(err) {\n    res.status(500)\n    res.json(err)\n    return;\n  }\n\n  res.json(document)\n\n})\n```\n\nDelete data\n```sh\nvar userModel = require(\'./model/user\').User;\n\nreq.body._id = req.params.id;\nuserModel.deleteDocNode({document: req.body}, function(err, document, node){\n\n  if(err) {\n    res.status(500)\n    res.json(err)\n    return;\n  }\n\n  res.json(document)\n\n})\n```\n\nAssociate Node\n```sh\nvar parent = {};\nparent._id = "5915bd15671309301664fc25";\n\nvar son = {};\nson._id = "5915d2e284fb254134e23fcd"\n\nvar relation = {};\nrelation.since = 1992;\n\nvar data = {parentNode: parent, sonNode: son, relationNode: relation}\nvar labels = {parentLabel: \'user\', sonLabel: \'user\'};\n\nuserModel.associateNodes({node:{ data: data, relationName: \'belongsto\',\tlabels: labels}}, function(err, response){\n  if(err) {\n    res.status(500)\n    res.json(err)\n    return;\n  }\n  res.json(response)\n});\n```\n\nDisassociate Node (only one)\n```sh\nvar parent = {};\nparent._id = "5915d2e284fb254134e23fcd";\n\nvar son = {};\nson._id = "5915bd15671309301664fc25";\n\nuserModel.disassociate({\n    node:{ \n      labels:{parentLabel: \'user\', sonLabel: \'user\'},\n      data: {parentNode: parent, sonNode: son}, \n      isMultiDelete: false, \n      relationName: \'belongsto\'\n    }\n  }, function(err, response){\n  if(err) {\n    res.status(500)\n    res.json(err)\n    return;\n  }\n  res.json(response)\n})\n```\n\nDisassociate Node (All nodes)\n```sh\nvar parent = {};\nparent._id = "5915d2e284fb254134e23fcd";\n\nuserModel.disassociate({node:{ data: {parentNode: parent}, isMultiDelete: true}}, function(err, response){\n  if(err) {\n    res.status(500)\n    res.json(err)\n    return;\n  }\n  res.json(response)\n})\n```\n\nGet Relationships\n```sh\nvar config = {};\n\nconfig.page = 0;\nconfig.recordsPerPage = 5;\nconfig.depth = 0;\nconfig.direction = \'<\';\nconfig.document = {};\nconfig.document._id = "5915d2e284fb254134e23fcd";\n\nuserModel.getRelationships(config, function(err, response) {\n  if(err) {\n    res.status(500)\n    res.json(err)\n    return;\n  }\n\n  res.json(response);\n})\n```',
+23 silly publish   readmeFilename: 'README.md',
+23 silly publish   gitHead: 'cb8261191ecbdfedb72503372193becc1d207c6d',
+23 silly publish   bugs: { url: 'https://github.com/diegosanteri/neomongoose/issues' },
+23 silly publish   homepage: 'https://github.com/diegosanteri/neomongoose#readme',
+23 silly publish   _id: 'neomongoose@0.0.5',
+23 silly publish   scripts: {},
+23 silly publish   _shasum: '7bd3abf09043e6067ae80c8d6c308122b1970a0a',
+23 silly publish   _from: '.' }
+24 info lifecycle neomongoose@0.0.5~prepublishOnly: neomongoose@0.0.5
+25 silly lifecycle neomongoose@0.0.5~prepublishOnly: no script for prepublishOnly, continuing
+26 verbose getPublishConfig undefined
+27 silly mapToRegistry name neomongoose
+28 silly mapToRegistry using default registry
+29 silly mapToRegistry registry https://registry.npmjs.org/
+30 silly mapToRegistry data Result {
+30 silly mapToRegistry   raw: 'neomongoose',
+30 silly mapToRegistry   scope: null,
+30 silly mapToRegistry   escapedName: 'neomongoose',
+30 silly mapToRegistry   name: 'neomongoose',
+30 silly mapToRegistry   rawSpec: '',
+30 silly mapToRegistry   spec: 'latest',
+30 silly mapToRegistry   type: 'tag' }
+31 silly mapToRegistry uri https://registry.npmjs.org/neomongoose
+32 verbose publish registryBase https://registry.npmjs.org/
+33 silly publish uploading /home/diego/.npm/neomongoose/0.0.5/package.tgz
+34 verbose request uri https://registry.npmjs.org/neomongoose
+35 verbose request sending authorization for write operation
+36 info attempt registry request try #1 at 13:13:04
+37 verbose request using bearer token for auth
+38 verbose request id 235dc4d087bb5b91
+39 http request PUT https://registry.npmjs.org/neomongoose
+40 http 403 https://registry.npmjs.org/neomongoose
+41 verbose headers { 'content-type': 'application/json',
+41 verbose headers   'cache-control': 'max-age=300',
+41 verbose headers   'content-length': '95',
+41 verbose headers   'accept-ranges': 'bytes',
+41 verbose headers   date: 'Thu, 25 May 2017 16:13:05 GMT',
+41 verbose headers   via: '1.1 varnish',
+41 verbose headers   connection: 'keep-alive',
+41 verbose headers   'x-served-by': 'cache-gru7127-GRU',
+41 verbose headers   'x-cache': 'MISS',
+41 verbose headers   'x-cache-hits': '0',
+41 verbose headers   'x-timer': 'S1495728785.705099,VS0,VE801',
+41 verbose headers   vary: 'Accept-Encoding' }
+42 verbose request invalidating /home/diego/.npm/registry.npmjs.org/neomongoose on PUT
+43 error publish Failed PUT 403
+44 verbose stack Error: "You cannot publish over the previously published version 0.0.5." : neomongoose
+44 verbose stack     at makeError (/home/diego/.nvm/versions/node/v7.7.2/lib/node_modules/npm/node_modules/npm-registry-client/lib/request.js:304:12)
+44 verbose stack     at CachingRegistryClient.<anonymous> (/home/diego/.nvm/versions/node/v7.7.2/lib/node_modules/npm/node_modules/npm-registry-client/lib/request.js:292:14)
+44 verbose stack     at Request._callback (/home/diego/.nvm/versions/node/v7.7.2/lib/node_modules/npm/node_modules/npm-registry-client/lib/request.js:212:14)
+44 verbose stack     at Request.self.callback (/home/diego/.nvm/versions/node/v7.7.2/lib/node_modules/npm/node_modules/request/request.js:186:22)
+44 verbose stack     at emitTwo (events.js:106:13)
+44 verbose stack     at Request.emit (events.js:194:7)
+44 verbose stack     at Request.<anonymous> (/home/diego/.nvm/versions/node/v7.7.2/lib/node_modules/npm/node_modules/request/request.js:1081:10)
+44 verbose stack     at emitOne (events.js:96:13)
+44 verbose stack     at Request.emit (events.js:191:7)
+44 verbose stack     at IncomingMessage.<anonymous> (/home/diego/.nvm/versions/node/v7.7.2/lib/node_modules/npm/node_modules/request/request.js:1001:12)
+45 verbose statusCode 403
+46 verbose pkgid neomongoose
+47 verbose cwd /home/diego/Documentos/projetos/npm/neomongoose
+48 error Linux 4.4.0-53-generic
+49 error argv "/home/diego/.nvm/versions/node/v7.7.2/bin/node" "/home/diego/.nvm/versions/node/v7.7.2/bin/npm" "publish"
+50 error node v7.7.2
+51 error npm  v4.1.2
+52 error code E403
+53 error "You cannot publish over the previously published version 0.0.5." : neomongoose
+54 error If you need help, you may report this error at:
+54 error     <https://github.com/npm/npm/issues>
+55 verbose exit [ 1, true ]
