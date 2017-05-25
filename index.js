@@ -442,7 +442,7 @@ function neomongoosePlugin(schema, options) {
 				throw {error: 'Unexpected error has happened'};
 			}
 		}
-		else if (config.operation = 'getRelationships') {
+		else if (config.operation == 'getRelationships') {
 
 			var direction = config.direction === undefined ? '<' : config.direction;
 			var leftDirection = '';
@@ -469,8 +469,8 @@ function neomongoosePlugin(schema, options) {
 
 			operation = "MATCH (n)@directionLeft@-[r]-@directionRight@(m) WHERE n._id='@_id@' " +
 						"WITH DISTINCT m, r, n ORDER BY m._id SKIP @skip@ LIMIT @recordsPerPage@ " +
-						"OPTIONAL MATCH p=((m)@directionLeft@-[*@depth@]-@directionRight@(q)) " +
-						"WHERE NOT exists((q)@directionLeft@-[]-@directionRight@()) OR length(p)=@pathLength@ " +
+						"OPTIONAL MATCH p=((m)<-[*@depth@]-(q)) " +
+						"WHERE NOT exists((q)<-[]-()) OR length(p)=@pathLength@ " +
 						"RETURN nodes(p), relationships(p), m, r, n";
 
 
@@ -489,7 +489,7 @@ function neomongoosePlugin(schema, options) {
 			}
 
 		}
-		else if (config.operation = 'getRelationshipsCount') {
+		else if (config.operation == 'getRelationshipsCount') {
 
 			var direction = config.direction === undefined ? '<' : config.direction;
 			var leftDirection = '';
@@ -708,22 +708,21 @@ function neomongoosePlugin(schema, options) {
 				config.operation = 'getRelationshipsCount';
 				
 				try {
-					query = queryString(config); 
+					var newquery = queryString(config); 
 				} catch (err) {
 					return callback(err);
 				}
 
 				innerSession
-				.run(query, {})
+				.run(newquery, {})
 				.then(function(r) {
-
 					var ret = {
-						docs: {}
-						total: r.records[0].get('c').toInt();
+						docs: {},
+						total: r.records[0].get('c').toInt()
 					};
 
 					ret.docs = Tree;
-					return callback(null, Tree);			
+					return callback(null, ret);			
 				});
 			});
 		})
