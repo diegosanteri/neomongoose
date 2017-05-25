@@ -518,6 +518,35 @@ function neomongoosePlugin(schema, options) {
 				throw {error: 'Unexpected error has happened'};
 			}
 		}
+		else if (config.operation == 'getDependencies') {
+
+			var direction = config.direction === undefined ? '<' : config.direction;
+			var leftDirection = '';
+			var rightDirection = '';
+
+			if(direction !== '<' && direction !== '>' && direction !== ''){
+				throw {error: "Relation direction is invalid"};
+			}
+			else {
+				if(direction === '<') {
+					leftDirection = direction;
+				}
+				else {
+					rightDirection = direction;
+				}
+			}
+
+			operation = "MATCH (n)@directionLeft@-[r]-@directionRight@(m) WHERE n._id='@_id@' WITH  m, r, n OPTIONAL MATCH p=((m)<-[*]-(q)) RETURN nodes(p), m, n"
+
+			try {
+				operation = operation.replace("@directionLeft@", leftDirection)
+										.replace("@directionRight@", rightDirection)
+										.replace("@_id@", config.document._id);
+			}
+			catch (e) {
+				throw {error: 'Unexpected error has happened'};
+			}
+		}
 		else {
 			throw "Unexpected error has happened." + config.operation + "  operation doesn't exist";
 		}
@@ -638,98 +667,78 @@ function neomongoosePlugin(schema, options) {
 			return callback({error: 'Invalid config', field: '_id'});
 		}
 
-		config.operation = 'getRelationships';
-
-		var query;
-		try {
-			query = queryString(config); 
-		} catch (err) {
-			return callback(err);
-		}
-
-		var session = driver.session();
-		
-		session
-		.run(query,{})
-		.then(function(result) {
-			session.close();
-
-			var records = result.records;
-
-			if (!records || records.length == 0) {
-				return callback('No Relationships Found');
+		this.findById(config.document._id, function (err, doc) {
+			if (!doc) {
+				callback('Item not found');
+				return
 			}
 
-			var ids = [];
-			var Tree = {};
+			config.operation = 'getRelationships';
 
-			for (var i = 0; i < records.length; i++) {
+			var query;
+			try {
+				query = queryString(config); 
+			} catch (err) {
+				return callback(err);
+			}
 
-				var subTree = [];
-				subTree.push({_id: records[i]._fields[4].properties._id});
+			var session = driver.session();
 
-				var relationship = {};
-				relationship._id = records[i]._fields[2].properties._id;
-				if (records[i]._fields[3].properties) {
-					relationship.relationProperties = normalizeProperties(records[i]._fields[3].properties);
+			session
+			.run(query,{})
+			.then(function(result) {
+				session.close();
+
+				var records = result.records;
+
+				if (!records || records.length == 0) {
+					return callback('No Relationships Found');
 				}
-				subTree.push(relationship);
 
-				if (records[i]._fields[0]) {
-					var fields = records[i]._fields[0];
-					for (var j = 1; j < fields.length; j++) {
-						var relationship = {};
-						relationship._id = fields[j].properties._id;
-						if (records[i]._fields[1][j-1].properties) {
-							relationship.relationProperties = normalizeProperties(records[i]._fields[1][j-1].properties);
-						}
-						subTree.push(relationship);
+				var aux = prepareResponse(records);
+
+				var ids = aux.ids;
+				var Tree = aux.tree;
+
+				__self.find({_id: ids}, function(err, docs) {
+					if (err) {
+						return callback(err, null);
 					}
-				}
 
-				arrayToNested(subTree, Tree);
+					try {
+						populateTreeData(Tree, docs);
+					} catch (err) {
+						return callback(err, null);
+					}
 
-				ids = ids.concat(subTree);
-			}
+					var innerSession = driver.session();
 
-			__self.find({_id: ids}, function(err, docs) {
-				if (err) {
-					return callback(err, null);
-				}
+					config.operation = 'getRelationshipsCount';
 
-				try {
-					populateTreeData(Tree, docs);
-				} catch (err) {
-					return callback(err, null);
-				}
+					try {
+						var newquery = queryString(config); 
+					} catch (err) {
+						return callback(err);
+					}
 
-				var innerSession = driver.session();
+					innerSession
+					.run(newquery, {})
+					.then(function(r) {
+						var ret = {
+							docs: {},
+							total: r.records[0].get('c').toInt()
+						};
 
-				config.operation = 'getRelationshipsCount';
-				
-				try {
-					var newquery = queryString(config); 
-				} catch (err) {
-					return callback(err);
-				}
-
-				innerSession
-				.run(newquery, {})
-				.then(function(r) {
-					var ret = {
-						docs: {},
-						total: r.records[0].get('c').toInt()
-					};
-
-					ret.docs = Tree;
-					return callback(null, ret);			
+						ret.docs = Tree;
+						return callback(null, ret);			
+					});
 				});
+			})
+			.catch(function(error) {
+				session.close();
+				return callback(error, null);
 			});
-		})
-		.catch(function(error) {
-			session.close();
-			return callback(error, null);
-		});
+		});		
 	}
 
 	function isInteger(data) {
@@ -787,7 +796,6 @@ function neomongoosePlugin(schema, options) {
 		}
 	}
 
-
 	function normalizeProperties(data) {
 		var keys = Object.keys(data);
 
@@ -803,6 +811,43 @@ function neomongoosePlugin(schema, options) {
 		}
 
 		return obj;
+	}
+
+	function prepareResponse(records) {
+
+		var ids = [];
+		var Tree = {};
+
+		for (var i = 0; i < records.length; i++) {
+
+			var subTree = [];
+			subTree.push({_id: records[i]._fields[4].properties._id});
+
+			var relationship = {};
+			relationship._id = records[i]._fields[2].properties._id;
+			if (records[i]._fields[3].properties) {
+				relationship.relationProperties = normalizeProperties(records[i]._fields[3].properties);
+			}
+			subTree.push(relationship);
+
+			if (records[i]._fields[0]) {
+				var fields = records[i]._fields[0];
+				for (var j = 1; j < fields.length; j++) {
+					var relationship = {};
+					relationship._id = fields[j].properties._id;
+					if (records[i]._fields[1][j-1].properties) {
+						relationship.relationProperties = normalizeProperties(records[i]._fields[1][j-1].properties);
+					}
+					subTree.push(relationship);
+				}
+			}
+
+			arrayToNested(subTree, Tree);
+
+			ids = ids.concat(subTree);
+		}
+
+		return {ids: ids, tree: Tree};
 	}
 }
 
