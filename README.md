@@ -186,3 +186,25 @@ userModel.disassociate({node:{ data: {parentNode: parent}, isMultiDelete: true}}
   res.json(response)
 })
 ```
+
+Get Relationships
+```sh
+var config = {};
+
+config.page = 0;
+config.recordsPerPage = 5;
+config.depth = 0;
+config.direction = '<';
+config.document = {};
+config.document._id = "5915d2e284fb254134e23fcd";
+
+userModel.getRelationships(config, function(err, response) {
+  if(err) {
+    res.status(500)
+    res.json(err)
+    return;
+  }
+
+  res.json(response);
+})
+```
