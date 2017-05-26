@@ -202,8 +202,8 @@ function neomongoosePlugin(schema, options) {
 					}
 
 					neo4jExec(nodeString, function(obj){
-						if(obj.summary.counters._stats.relationshipsCreated != 1) {
-							throw {error: 'Unexpected error when saving to neo4j'};
+						if(!obj.records) {
+							callback({error: 'Unexpected error when saving to neo4j'});
 						}
 						callback(null, {Message: 'Nodes has associated with success'});
 					}, function(err){
@@ -239,9 +239,6 @@ function neomongoosePlugin(schema, options) {
 					}
 
 					neo4jExec(nodeString, function(node){
-						if(obj.summary.counters._stats.relationshipsDeleted == 0) {
-							throw {error: 'Unexpected error when saving to neo4j'};
-						}
 						callback(err, {"Message": "Node has disassociated with success"});
 					}, function(err){
 						callback(err);
@@ -276,9 +273,6 @@ function neomongoosePlugin(schema, options) {
 					}
 
 					neo4jExec(nodeString, function(node){
-						if(obj.summary.counters._stats.relationshipsDeleted != 1) {
-							throw {error: 'Unexpected error when saving to neo4j'};
-						}
 						callback(err, {"Message": "Node has disassociated with success"});
 					}, function(err){
 						callback(err);
@@ -424,7 +418,7 @@ function neomongoosePlugin(schema, options) {
 
 
 			operation = "MATCH(m:@parentLabel@ {_id: '@parentNodeId@'}), (n:@sonLabel@ {_id: '@sonNodeId@'}) " +
-						"MERGE(m) @leftDirection@-[:@relationName@ @relationNode@]-@rightDirection@ (n) RETURN m,n";
+						"MERGE(m) @leftDirection@-[r:@relationName@ @relationNode@]-@rightDirection@ (n) RETURN r";
 
 
 			try{
@@ -747,7 +741,9 @@ function neomongoosePlugin(schema, options) {
 
 	function arrayObjectIndexOf(myArray, searchTerm, property) {
 		for(var i = 0, len = myArray.length; i < len; i++) {
-			if (myArray[i][property] == searchTerm) return i;
+			if (myArray[i][property] == searchTerm[property]) {
+				return i;
+			}
 		}
 		return -1;
 	}
@@ -783,7 +779,7 @@ function neomongoosePlugin(schema, options) {
 
 		var objectData = {};
 
-		objectData = data[arrayObjectIndexOf(data, Tree._id, "_id")];
+		objectData = data[arrayObjectIndexOf(data, Tree, "_id")];
 
 		if (objectData) {
 			Object.assign(Tree, objectData._doc);
@@ -811,6 +807,58 @@ function neomongoosePlugin(schema, options) {
 		}
 
 		return obj;
+	}
+
+	schema.statics.getDependencies = function(config, callback) {
+		var __self = this;
+		try {
+			var document = config.document;
+		}
+		catch (e) {
+			return callback({error: 'Invalid config', field: 'document'});
+		}
+
+		documentInfo = isValidDocument(document);
+
+		if (!documentInfo) {
+			return callback({error: 'Invalid config', field: documentInfo.field});
+		}
+
+		if (document._id === '' || document._id === null || document._id === undefined) {
+			return callback({error: 'Invalid config', field: '_id'});
+		}
+
+		config.operation = 'getDependencies';
+
+		var query;
+		try {
+			query = queryString(config); 
+		} catch (err) {
+			return callback(err);
+		}
+
+		var session = driver.session();
+
+		session
+		.run(query,{})
+		.then(function(result) {
+			var ids = [];
+
+			result.records.forEach(function(cur, index, array) {
+				ids.push(cur.get('n').properties._id);
+				ids.push(cur.get('m').properties._id);
+
+				if (cur._fields[0]) {
+					for (var i = 1; i < cur._fields[0].length; i++) {
+						ids.push(cur._fields[0][i].properties._id);
+					}
+				}
+
+			});
+
+			callback(undefined, ids);
+
+		});
 	}
 
 	function prepareResponse(records) {
@@ -841,12 +889,10 @@ function neomongoosePlugin(schema, options) {
 					subTree.push(relationship);
 				}
 			}
-
 			arrayToNested(subTree, Tree);
 
 			ids = ids.concat(subTree);
 		}
-
 		return {ids: ids, tree: Tree};
 	}
 }
