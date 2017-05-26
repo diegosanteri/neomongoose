@@ -1,7 +1,7 @@
 {
   "name": "neomongoose",
   "description": "Mongoose plugin that working with mongoose and neo4j together",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "author": "Diego Conti Santeri Tonini <diegosanteri@gmail.com>",
   "contributors": [
     {
