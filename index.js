@@ -201,6 +201,8 @@ function neomongoosePlugin(schema, options) {
 						return callback(e); 
 					}
 
+					console.log(nodeString);
+
 					neo4jExec(nodeString, function(obj){
 						if(!obj.records) {
 							callback({error: 'Unexpected error when saving to neo4j'});
@@ -418,7 +420,8 @@ function neomongoosePlugin(schema, options) {
 
 
 			operation = "MATCH(m:@parentLabel@ {_id: '@parentNodeId@'}), (n:@sonLabel@ {_id: '@sonNodeId@'}) " +
-						"MERGE(m) @leftDirection@-[r:@relationName@ @relationNode@]-@rightDirection@ (n) RETURN r";
+						"CREATE UNIQUE(m) @leftDirection@-[r:@relationName@]-@rightDirection@(n) " +
+						"SET r = @relationNode@ RETURN r";
 
 
 			try{
