@@ -11,25 +11,24 @@ var jju = require('jju')
 function neomongoosePlugin(schema, options) {
 
 	var driver = neo4j.driver(options.connectURI, neo4j.auth.basic(options.user, options.password));
+	var session = driver.session();
 
+	session.run('RETURN 1').then(function() {}).catch(function(err) {
+		throw new Error('Cannot connect to Neo4j');
+	});
 
 	schema.statics.insertDocNode = function insertDocNode(config, callback) {
 		var self = this;
 
 		var documentInfo = isValidDocument(config.document);
 		if(!documentInfo.status) {
-			return callback({error: 'Invalid config', field: documentInfo.field});
+			return callback({error: 'invalidConfigError', field: documentInfo.field});
 		}
 		var document = config.document;
 
-		if(document._id) {
-			return callback({error: 'Invalid config', field: '_id'});
-		}
-
-
 		documentInfo = isValidOnlyOneNode(config.node);
 		if(!documentInfo.status) {
-			return callback({error: 'Invalid config', field: documentInfo.field});
+			return callback({error: 'invalidConfigError', field: documentInfo.field});
 		}
 		var node = config.node;
 
@@ -37,7 +36,11 @@ function neomongoosePlugin(schema, options) {
 		modelInstance.save(function(err, documentInserted){
 
 			if (err || documentInserted === undefined) {
-				return callback(err, undefined, undefined);
+				if (err.code === 11000) {
+					return callback({error: 'duplicateKeyError', msg: err})
+				}
+
+				return callback({error: 'mongoError', msg: err});
 			}
 
 			node.operation = 'insert';
@@ -48,20 +51,23 @@ function neomongoosePlugin(schema, options) {
 				nodeString = queryString(node);
 			}
 			catch(e) {
-				return callback(e, undefined, undefined); 
+				return callback({error: 'unexpectedError', msg:e}); 
 			}
 
 			neo4jExec(nodeString, function(obj){
 				if(obj.summary.counters._stats.nodesCreated != 1) {
-
-
 					self.remove({_id: documentInserted._id}, function(err) {
-						callback({error: 'Unexpected error'});
+						return callback({error: 'mongoError', msg: err});
 					});
 				}
-				callback(null, documentInserted);
+				return callback(undefined, documentInserted);
 			}, function(err){
-				callback(err);
+				self.remove({_id: documentInserted._id}, function(e) {
+					if (e) {
+						return callback({error: 'mongoError', msg: e});
+					}
+					return callback({error: 'neo4jError', msg: err});
+				});
 			});
 		});
 	}
@@ -74,26 +80,26 @@ function neomongoosePlugin(schema, options) {
 
 		var documentInfo = isValidDocument(document);
 		if(!documentInfo.status) {
-			return callback({error: 'Invalid config', field: documentInfo.field});
+			return callback({error: 'invalidConfigError', field: documentInfo.field});
 		}
 
 		if(document._id === null || document._id === '' || document._id === undefined) {
-			return callback({error: 'Invalid config', field: '_id'});
+			return callback({error: 'invalidConfigError', field: '_id'});
 		}
 
 		documentInfo = isValidOnlyOneNode(node);
 		if(!documentInfo.status) {
-			return callback({error: 'Invalid config', field: documentInfo.field});
+			return callback({error: 'invalidConfigError', field: documentInfo.field});
 		}
 
 		self.update({_id: document._id}, document, function(err, numAffected){
 
 			if (err || numAffected === undefined) {
-				return callback(err, undefined, undefined);
+				return callback({error: 'mongoError', msg: err});
 			}
 
 			if (numAffected.n == 0) {
-				return callback({error: 'Document not found'});
+				return callback({error: 'notFound'});
 			}
 
 			node.operation = 'update';
@@ -104,16 +110,13 @@ function neomongoosePlugin(schema, options) {
 				nodeString = queryString(node);
 			}
 			catch(e) {
-				return callback(e); 
+				return callback({error: 'unexpectedError', msg: e}); 
 			}
 
 			neo4jExec(nodeString, function(obj){
-				if(obj.summary.counters._stats.propertiesSet == 0) {
-					throw {error: 'Unexpected error when saving to neo4j'};
-				}
 				callback(null, {message: "Node was updated"});
 			}, function(err){
-				callback(err, undefined, undefined);
+				callback({error: 'neo4jError', msg: err});
 			});
 		});
 	}
@@ -125,11 +128,11 @@ function neomongoosePlugin(schema, options) {
 
 		var documentInfo = isValidDocument(document);
 		if(!documentInfo.status) {
-			return callback({error: 'Invalid config', field: documentInfo.field});
+			return callback({error: 'invalidConfigError', field: documentInfo.field});
 		}
 
 		if(document._id === undefined) {
-			return callback({error: 'Invalid config', field: '_id'});
+			return callback({error: 'invalidConfigError', field: '_id'});
 		}
 
 		self.remove({_id: document._id}, function(err, obj){
@@ -139,7 +142,7 @@ function neomongoosePlugin(schema, options) {
 			}
 
 			if (obj.result.n == 0) {
-				return callback({error: 'Not Found'}, undefined);
+				return callback({error: 'notFound'}, undefined);
 			}
 
 			var node = {data: {}};
@@ -152,16 +155,72 @@ function neomongoosePlugin(schema, options) {
 				nodeString = queryString(node);
 			}
 			catch(e) {
-				return callback(e); 
+				return callback({error: 'unexpectedError', msg: e}); 
 			}
 
 			neo4jExec(nodeString, function(obj){
-				if(obj.summary.counters._stats.nodesDeleted != 1) {
-					throw {error: 'Unexpected error when saving to neo4j'};
-				}
 				callback(null, {message: "Node was deleted"});
 			}, function(err){
-				callback(err, undefined, undefined);
+				callback({error: 'neo4jError', msg: err});
+			});
+		});
+	}
+
+	schema.statics.softDeleteDocNode = function(config, callback) {
+		var self = this;
+
+		var document = config.document;
+
+		var documentInfo = isValidDocument(document);
+		if(!documentInfo.status) {
+			return callback({error: 'invalidConfigError', field: documentInfo.field});
+		}
+
+		if(document._id === undefined) {
+			return callback({error: 'invalidConfigError', field: '_id'});
+		}
+
+		self.find({_id: document._id, DELETED:false}, function(err, docs){
+
+			if (err) {
+				return callback({error: 'mongoError', msg: err});
+			}
+
+			if (!docs || !docs.length || docs.length < 1) {
+				return callback({error: 'notFound'});
+			}
+
+			docs[0].DELETED = true;
+
+			docs[0].save(function(err) {
+
+				if (err) {
+					return callback({error: 'mongoError', msg: err});
+				}
+
+				var node = {data: {}};
+				node.operation = 'softRemoveNode';
+				node.data.nodeData = {};
+				node.data.nodeData._id = document._id;
+
+				var nodeString = ''	
+				try{
+					nodeString = queryString(node);
+				}
+				catch(e) {
+					return callback({error: 'unexpectedError', msg: e}); 
+				}
+
+				neo4jExec(nodeString, function(obj){
+					return callback(null, {message: "Node was deleted"});
+				}, function(err) {
+					self.update({_id: docs[0]._id}, {DELETED: false}, function(e, numAffected) {
+						if (e) {
+							return callback({error: 'mongoError', msg: e});
+						}
+							return callback({error: 'neo4jError', msg: err})
+					});
+				});
 			});
 		});
 	}
@@ -172,23 +231,23 @@ function neomongoosePlugin(schema, options) {
 		var node = config.node;
 		var documentInfo = isValidParentSonNode(node);
 		if(!documentInfo.status) {
-			return callback({error: 'Invalid config', field: documentInfo.field});
+			return callback({error: 'invalidConfigError', field: documentInfo.field});
 		}
 
 		var nodes = [node.data.parentNode._id, node.data.sonNode._id];
 
 
-		self.find({_id:nodes}, function(err, response){
+		self.find({_id:nodes, DELETED: false}, function(err, response){
 			if (err || response === undefined) {
 				return callback(err, undefined, undefined);
 			}
 
 			if(response === null) {
-				return callback({error: "Nodes doesn't exist"}, undefined, undefined);
+				return callback({error: "notFound"});
 			}
 			else {
 				if(response.length < 2) {
-					return callback({error: "Nodes doesn't exist"}, undefined, undefined);
+					return callback({error: "notFound"});
 				}
 				else {
 					node.operation = 'associate';
@@ -201,15 +260,13 @@ function neomongoosePlugin(schema, options) {
 						return callback(e); 
 					}
 
-					console.log(nodeString);
-
 					neo4jExec(nodeString, function(obj){
 						if(!obj.records) {
-							callback({error: 'Unexpected error when saving to neo4j'});
+							return callback({error: 'neo4jError', msg: 'Unexpected Error'});
 						}
-						callback(null, {Message: 'Nodes has associated with success'});
+						return callback(null, {Message: 'Nodes has associated with success'});
 					}, function(err){
-						callback(err);
+						return callback({error: 'neo4jError', msg:err});
 					});
 				}
 			}
@@ -223,11 +280,11 @@ function neomongoosePlugin(schema, options) {
 		if(node.isMultiDelete) {
 			self.find({_id: node.data.parentNode._id}, function(err, response){
 				if (err || response === undefined) {
-					return callback(err, undefined, undefined);
+					return callback({error: 'mongoError', msg: err});
 				}
 
 				if(response === null) {
-					return callback({error: "Node doesn't exist"}, undefined, undefined);
+					return callback({error: "notFound"}, undefined, undefined);
 				}
 				else {
 					node.operation = 'disassociate';
@@ -237,13 +294,13 @@ function neomongoosePlugin(schema, options) {
 						nodeString = queryString(node);
 					}
 					catch(e) {
-						return callback(e); 
+						return callback({error:'unexpectedError', msg: e}); 
 					}
 
 					neo4jExec(nodeString, function(node){
 						callback(err, {"Message": "Node has disassociated with success"});
 					}, function(err){
-						callback(err);
+						callback({error: 'neo4jError', msg: err});
 					})
 				}
 			})
@@ -256,12 +313,12 @@ function neomongoosePlugin(schema, options) {
 				}
 
 				if(response === null) {
-					return callback({error: "Node doesn't exist"});
+					return callback({error: "notFound"});
 				}
 				else {
 
 					if(response.length < 2) {
-						return callback({error: "Node doesn't exist"});
+						return callback({error: "notFound"});
 					}
 
 					node.operation = 'disassociate';
@@ -271,13 +328,13 @@ function neomongoosePlugin(schema, options) {
 						nodeString = queryString(node);
 					}
 					catch(e) {
-						return callback(e); 
+						return callback({error: 'unexpectedError', msg: e}); 
 					}
 
 					neo4jExec(nodeString, function(node){
 						callback(err, {"Message": "Node has disassociated with success"});
 					}, function(err){
-						callback(err);
+						callback({error: 'neo4jError', msg: err});
 					})
 				}
 			})
@@ -315,7 +372,7 @@ function neomongoosePlugin(schema, options) {
 										.replace('@data@', convertJsonToCypher(config.data.nodeData))
 			}
 			catch(e){
-				throw {error: 'Unexpected error has happened'};
+				throw e;
 			}
 		}
 		else if (config.operation === 'update') {
@@ -326,7 +383,7 @@ function neomongoosePlugin(schema, options) {
 										.replace('@data@', convertJsonToCypher(config.data.nodeData));
 			}
 			catch(e){
-				throw {error: 'Unexpected error has happened'};
+				throw e;
 			}
 
 		}
@@ -336,7 +393,16 @@ function neomongoosePlugin(schema, options) {
 				operation = operation.replace('@_id@', config.data.nodeData._id);
 			}
 			catch(e){
-				throw {error: 'Unexpected error has happened'};
+				throw e;
+			}
+		}
+		else if(config.operation === 'softRemoveNode') {
+			try{
+				operation = "MATCH (m) WHERE m._id= '@_id@' WITH m OPTIONAL MATCH (m)-[r]-() SET m.DELETED = true RETURN m";
+				operation = operation.replace('@_id@', config.data.nodeData._id);
+			}
+			catch(e){
+				throw e;
 			}
 		}
 		else if(config.operation === 'disassociate') {
@@ -346,7 +412,7 @@ function neomongoosePlugin(schema, options) {
 			var rightDirection = '';
 
 			if(direction !== '<' && direction !== '>' && direction !== ''){
-				throw {error: "Relation direction is invalid"};
+				throw new Error("Invalid relationship direction");
 			}
 			else {
 				if(direction === '<') {
@@ -371,8 +437,6 @@ function neomongoosePlugin(schema, options) {
 											.replace('@relationName@', relationName);
 				}
 				else {
-					console.log(config.data.parentNode)
-					console.log(config.data.sonNode)
 
 					operation = "MATCH (a:@parentLabel@ @parentNode@)@leftDirection@-[r:@relationName@]-@rightDirection@(b:@sonLabel@ @sonNode@) DELETE r";
 					operation = operation.replace('@leftDirection@', leftDirection)
@@ -385,7 +449,7 @@ function neomongoosePlugin(schema, options) {
 				}
 			}
 			catch(e){
-				throw {error: 'Unexpected error has happened'};
+				throw e;
 			}
 		}
 		else if (config.operation === 'associate') {
@@ -394,7 +458,7 @@ function neomongoosePlugin(schema, options) {
 			var rightDirection = '';
 
 			if(direction !== '<' && direction !== '>' && direction !== ''){
-				throw {error: "Relation direction is invalid"};
+				throw new Error("Invalid relationship direction");
 			}
 			else {
 				if(direction === '<') {
@@ -436,7 +500,7 @@ function neomongoosePlugin(schema, options) {
 
 			}
 			catch(e){
-				throw {error: 'Unexpected error has happened'};
+				throw e;
 			}
 		}
 		else if (config.operation == 'getRelationships') {
@@ -446,7 +510,7 @@ function neomongoosePlugin(schema, options) {
 			var rightDirection = '';
 
 			if(direction !== '<' && direction !== '>' && direction !== ''){
-				throw {error: "Relation direction is invalid"};
+				throw new Error("Invalid relationship direction");
 			}
 			else {
 				if(direction === '<') {
@@ -464,12 +528,12 @@ function neomongoosePlugin(schema, options) {
 			var depthReplace = depth == 0 ? '' : ('1..' + depth - 1);
 			var pathLength = (depth == 0 ? 0 : depth - 1);
 
-			operation = "MATCH (n)@directionLeft@-[r]-@directionRight@(m) WHERE n._id='@_id@' " +
+			operation = "MATCH (n)@directionLeft@-[r]-@directionRight@(m) "+
+						"WHERE n._id='@_id@' " +
 						"WITH DISTINCT m, r, n ORDER BY m._id SKIP @skip@ LIMIT @recordsPerPage@ " +
 						"OPTIONAL MATCH p=((m)<-[*@depth@]-(q)) " +
 						"WHERE NOT exists((q)<-[]-()) OR length(p)=@pathLength@ " +
 						"RETURN nodes(p), relationships(p), m, r, n";
-
 
 			try {
 				operation = operation.replace("@directionLeft@", leftDirection)
@@ -482,9 +546,8 @@ function neomongoosePlugin(schema, options) {
 
 			}
 			catch (e) {
-				throw {error: 'Unexpected error has happened'};
+				throw e;
 			}
-
 		}
 		else if (config.operation == 'getRelationshipsCount') {
 
@@ -493,7 +556,7 @@ function neomongoosePlugin(schema, options) {
 			var rightDirection = '';
 
 			if(direction !== '<' && direction !== '>' && direction !== ''){
-				throw {error: "Relation direction is invalid"};
+				throw new Error("Invalid relationship direction");
 			}
 			else {
 				if(direction === '<') {
@@ -512,7 +575,7 @@ function neomongoosePlugin(schema, options) {
 										.replace("@_id@", config.document._id);
 			}
 			catch (e) {
-				throw {error: 'Unexpected error has happened'};
+				throw e;
 			}
 		}
 		else if (config.operation == 'getDependencies') {
@@ -522,7 +585,7 @@ function neomongoosePlugin(schema, options) {
 			var rightDirection = '';
 
 			if(direction !== '<' && direction !== '>' && direction !== ''){
-				throw {error: "Relation direction is invalid"};
+				throw new Error("Invalid relationship direction");
 			}
 			else {
 				if(direction === '<') {
@@ -541,7 +604,7 @@ function neomongoosePlugin(schema, options) {
 										.replace("@_id@", config.document._id);
 			}
 			catch (e) {
-				throw {error: 'Unexpected error has happened'};
+				throw e;
 			}
 		}
 		else {
@@ -561,7 +624,7 @@ function neomongoosePlugin(schema, options) {
 		if(document !== undefined  && document !== null) {
 			if(Object.keys(document).length != 0) {
 				status = true;
-			}	
+			}
 		}
 
 		return {status: status, field: 'document'}
@@ -651,23 +714,27 @@ function neomongoosePlugin(schema, options) {
 			var document = config.document;
 		}
 		catch (e) {
-			return callback({error: 'Invalid config', field: 'document'});
+			return callback({error: 'invalidConfigError', field: 'document'});
 		}
 
 		documentInfo = isValidDocument(document);
 
 		if (!documentInfo) {
-			return callback({error: 'Invalid config', field: documentInfo.field});
+			return callback({error: 'invalidConfigError', field: documentInfo.field});
 		}
 
 		if (document._id === '' || document._id === null || document._id === undefined) {
-			return callback({error: 'Invalid config', field: '_id'});
+			return callback({error: 'invalidConfigError', field: '_id'});
 		}
 
 		this.findById(config.document._id, function (err, doc) {
+
+			if (err) {
+				return callback({error: 'mongoError', msg: err});
+			}
+
 			if (!doc) {
-				callback('Item not found');
-				return
+				return callback({error: 'notFound'});
 			}
 
 			config.operation = 'getRelationships';
@@ -676,7 +743,7 @@ function neomongoosePlugin(schema, options) {
 			try {
 				query = queryString(config); 
 			} catch (err) {
-				return callback(err);
+				return callback({error: 'unexpectedError', msg: err});
 			}
 
 			var session = driver.session();
@@ -689,7 +756,10 @@ function neomongoosePlugin(schema, options) {
 				var records = result.records;
 
 				if (!records || records.length == 0) {
-					return callback('No Relationships Found');
+					let ret = {};
+					ret.docs = doc._doc;
+					callback(undefined, ret);
+					return;
 				}
 
 				var aux = prepareResponse(records);
@@ -699,13 +769,13 @@ function neomongoosePlugin(schema, options) {
 
 				__self.find({_id: ids}, function(err, docs) {
 					if (err) {
-						return callback(err, null);
+						return callback({error: 'mongoError', msg:err});
 					}
 
 					try {
 						populateTreeData(Tree, docs);
 					} catch (err) {
-						return callback(err, null);
+						return callback({error: 'unexpectedError', msg: err});
 					}
 
 					var innerSession = driver.session();
@@ -715,7 +785,7 @@ function neomongoosePlugin(schema, options) {
 					try {
 						var newquery = queryString(config); 
 					} catch (err) {
-						return callback(err);
+						return callback({error: 'unexpectedError', msg: err});
 					}
 
 					innerSession
@@ -727,9 +797,10 @@ function neomongoosePlugin(schema, options) {
 						};
 
 						ret.docs = Tree;
-						return callback(null, ret);			
+						return callback(null, ret);
 					});
 				});
+
 			})
 			.catch(function(error) {
 				session.close();
@@ -755,26 +826,29 @@ function neomongoosePlugin(schema, options) {
 
 		var o = object
 		for(var i = 0; i < array.length-1; i++) {
-
-			if (!o._id) {
-				try {
-					o._id = array[i]._id;
+				if (!o._id) {
+					try {
+						o._id = array[i]._id;
+					}
+					catch (err) {
+						console.log(err);
+					}
 				}
-				catch (err) {
-					console.log(err);
+
+				if (!o.relationships) {
+					o.relationships = [];
 				}
-			}
 
-			if (!o.relationships) {
-				o.relationships = [];
-			}
+				if (array[i+1].DELETED) {
+					return
+				}
 
-			if (arrayObjectIndexOf(o.relationships, array[i + 1], "_id") != -1) {
-				o = o["relationships"][arrayObjectIndexOf(o.relationships, array[i+1], "_id")];
-			} else {
-				o.relationships.push(array[i + 1]);
-				o = o.relationships[o.relationships.length -1];
-			}
+				if (arrayObjectIndexOf(o.relationships, array[i + 1], "_id") != -1) {
+					o = o["relationships"][arrayObjectIndexOf(o.relationships, array[i+1], "_id")];
+				} else {
+					o.relationships.push(array[i + 1]);
+					o = o.relationships[o.relationships.length -1];
+				}
 		}
 	}
 
@@ -818,17 +892,17 @@ function neomongoosePlugin(schema, options) {
 			var document = config.document;
 		}
 		catch (e) {
-			return callback({error: 'Invalid config', field: 'document'});
+			return callback({error: 'invalidConfigError', field: 'document'});
 		}
 
 		documentInfo = isValidDocument(document);
 
 		if (!documentInfo) {
-			return callback({error: 'Invalid config', field: documentInfo.field});
+			return callback({error: 'invalidConfigError', field: documentInfo.field});
 		}
 
 		if (document._id === '' || document._id === null || document._id === undefined) {
-			return callback({error: 'Invalid config', field: '_id'});
+			return callback({error: 'invalidConfigError', field: '_id'});
 		}
 
 		config.operation = 'getDependencies';
@@ -872,10 +946,11 @@ function neomongoosePlugin(schema, options) {
 		for (var i = 0; i < records.length; i++) {
 
 			var subTree = [];
-			subTree.push({_id: records[i]._fields[4].properties._id});
+			subTree.push({_id: records[i]._fields[4].properties._id, DELETED: records[i]._fields[4].properties.DELETED});
 
 			var relationship = {};
 			relationship._id = records[i]._fields[2].properties._id;
+			relationship.DELETED = records[i]._fields[2].properties.DELETED;
 			if (records[i]._fields[3].properties) {
 				relationship.relationProperties = normalizeProperties(records[i]._fields[3].properties);
 			}
@@ -886,6 +961,7 @@ function neomongoosePlugin(schema, options) {
 				for (var j = 1; j < fields.length; j++) {
 					var relationship = {};
 					relationship._id = fields[j].properties._id;
+					relationship.DELETED = fields[j].properties.DELETED;
 					if (records[i]._fields[1][j-1].properties) {
 						relationship.relationProperties = normalizeProperties(records[i]._fields[1][j-1].properties);
 					}
