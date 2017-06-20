@@ -51,7 +51,7 @@ function neomongoosePlugin(schema, options) {
 				nodeString = queryString(node);
 			}
 			catch(e) {
-				return callback({error: 'unexpectedError', msg:e}); 
+				return callback({error: 'unexpectedError', msg:e});
 			}
 
 			neo4jExec(nodeString, function(obj){
@@ -110,7 +110,7 @@ function neomongoosePlugin(schema, options) {
 				nodeString = queryString(node);
 			}
 			catch(e) {
-				return callback({error: 'unexpectedError', msg: e}); 
+				return callback({error: 'unexpectedError', msg: e});
 			}
 
 			neo4jExec(nodeString, function(obj){
@@ -155,7 +155,7 @@ function neomongoosePlugin(schema, options) {
 				nodeString = queryString(node);
 			}
 			catch(e) {
-				return callback({error: 'unexpectedError', msg: e}); 
+				return callback({error: 'unexpectedError', msg: e});
 			}
 
 			neo4jExec(nodeString, function(obj){
@@ -203,12 +203,12 @@ function neomongoosePlugin(schema, options) {
 				node.data.nodeData = {};
 				node.data.nodeData._id = document._id;
 
-				var nodeString = ''	
+				var nodeString = ''
 				try{
 					nodeString = queryString(node);
 				}
 				catch(e) {
-					return callback({error: 'unexpectedError', msg: e}); 
+					return callback({error: 'unexpectedError', msg: e});
 				}
 
 				neo4jExec(nodeString, function(obj){
@@ -257,7 +257,7 @@ function neomongoosePlugin(schema, options) {
 						nodeString = queryString(node);
 					}
 					catch(e) {
-						return callback(e); 
+						return callback(e);
 					}
 
 					neo4jExec(nodeString, function(obj){
@@ -294,7 +294,7 @@ function neomongoosePlugin(schema, options) {
 						nodeString = queryString(node);
 					}
 					catch(e) {
-						return callback({error:'unexpectedError', msg: e}); 
+						return callback({error:'unexpectedError', msg: e});
 					}
 
 					neo4jExec(nodeString, function(node){
@@ -328,7 +328,7 @@ function neomongoosePlugin(schema, options) {
 						nodeString = queryString(node);
 					}
 					catch(e) {
-						return callback({error: 'unexpectedError', msg: e}); 
+						return callback({error: 'unexpectedError', msg: e});
 					}
 
 					neo4jExec(nodeString, function(node){
@@ -525,24 +525,24 @@ function neomongoosePlugin(schema, options) {
 			var page = config.page === undefined ? 0 : config.page;
 			var recordsPerPage = config.recordsPerPage === undefined ? 5 : config.recordsPerPage;
 			var recordsToSkiṕ = page * recordsPerPage;
-			var depthReplace = depth == 0 ? '' : ('1..' + depth - 1);
+			var depthReplace = depth == 0 ? '' : ('1..' + depth);
 			var pathLength = (depth == 0 ? 0 : depth - 1);
 
 			operation = "MATCH (n)@directionLeft@-[r]-@directionRight@(m) "+
 						"WHERE n._id='@_id@' " +
 						"WITH DISTINCT m, r, n ORDER BY m._id SKIP @skip@ LIMIT @recordsPerPage@ " +
-						"OPTIONAL MATCH p=((m)<-[*@depth@]-(q)) " +
-						"WHERE NOT exists((q)<-[]-()) OR length(p)=@pathLength@ " +
+						"OPTIONAL MATCH p=((m)@directionLeft@-[*@depth@]-@directionRight@(q)) " +
+						"WHERE NOT exists((q)@directionLeft@-[]-@directionRight@()) OR length(p)=@pathLength@ " +
 						"RETURN nodes(p), relationships(p), m, r, n";
 
 			try {
-				operation = operation.replace("@directionLeft@", leftDirection)
-										.replace("@directionRight@", rightDirection)
-										.replace("@_id@", config.document._id)
-										.replace("@skip@", recordsToSkiṕ)
-										.replace("@recordsPerPage@", recordsPerPage)
-										.replace("@depth@", depthReplace)
-										.replace("@pathLength@", pathLength);
+				operation = operation.replace(/@directionLeft@/g, leftDirection)
+										.replace(/@directionRight@/g, rightDirection)
+										.replace(/@_id@/g, config.document._id)
+										.replace(/@skip@/g, recordsToSkiṕ)
+										.replace(/@recordsPerPage@/g, recordsPerPage)
+										.replace(/@depth@/g, depthReplace)
+										.replace(/@pathLength@/g, pathLength);
 
 			}
 			catch (e) {
@@ -618,7 +618,7 @@ function neomongoosePlugin(schema, options) {
 	}
 
 	function isValidDocument(document) {
-		
+
 		var status = false;
 
 		if(document !== undefined  && document !== null) {
@@ -741,7 +741,7 @@ function neomongoosePlugin(schema, options) {
 
 			var query;
 			try {
-				query = queryString(config); 
+				query = queryString(config);
 			} catch (err) {
 				return callback({error: 'unexpectedError', msg: err});
 			}
@@ -783,7 +783,7 @@ function neomongoosePlugin(schema, options) {
 					config.operation = 'getRelationshipsCount';
 
 					try {
-						var newquery = queryString(config); 
+						var newquery = queryString(config);
 					} catch (err) {
 						return callback({error: 'unexpectedError', msg: err});
 					}
@@ -806,7 +806,7 @@ function neomongoosePlugin(schema, options) {
 				session.close();
 				return callback(error, null);
 			});
-		});		
+		});
 	}
 
 	function isInteger(data) {
@@ -909,7 +909,7 @@ function neomongoosePlugin(schema, options) {
 
 		var query;
 		try {
-			query = queryString(config); 
+			query = queryString(config);
 		} catch (err) {
 			return callback(err);
 		}
