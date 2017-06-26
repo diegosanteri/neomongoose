@@ -10,6 +10,10 @@ var jju = require('jju')
 
 function neomongoosePlugin(schema, options) {
 
+  if (!schema.path('DELETED')) {
+    schema.add({DELETED: {type: Boolean, default: false}});
+  }
+
 	var driver = neo4j.driver(options.connectURI, neo4j.auth.basic(options.user, options.password));
 	var session = driver.session();
 
