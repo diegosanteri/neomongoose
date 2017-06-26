@@ -351,7 +351,7 @@ function neomongoosePlugin(schema, options) {
 
 		var doc = config.document;
 
-		self.find({_id: doc._id}, function(err, response) {
+		self.findOne({_id: doc._id}, function(err, response) {
 			if (err || response === undefined) {
 				return callback(err, undefined, undefined);
 			}
