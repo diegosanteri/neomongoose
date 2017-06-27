@@ -341,6 +341,32 @@ function neomongoosePlugin(schema, options) {
 		}
 	}
 
+	schema.statics.getNode = function getNode(config, callback) {
+		var self = this;
+
+
+		var doc = config.document;
+
+		self.findOne({_id: doc._id}, function(err, response) {
+			if (err || response === undefined) {
+				return callback(err, undefined, undefined);
+			}
+
+			if(response === null) {
+				return callback({error: "notFound"});
+			}
+			else {
+
+				if(response.DELETED) {
+					return callback({error: "notFound"});
+				}
+
+				return callback(err, response);
+			}
+		})
+
+	}
+
 	function neo4jExec(commandString, successCallback, errorCallback) {
 		var session = driver.session();
 
