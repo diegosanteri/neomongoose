@@ -17,10 +17,6 @@ function neomongoosePlugin(schema, options) {
 	var driver = neo4j.driver(options.connectURI, neo4j.auth.basic(options.user, options.password));
 	var session = driver.session();
 
-	session.run('RETURN 1').then(function() {}).catch(function(err) {
-		throw new Error('Cannot connect to Neo4j');
-	});
-
 	schema.statics.insertDocNode = function insertDocNode(config, callback) {
 		var self = this;
 
