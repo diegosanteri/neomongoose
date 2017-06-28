@@ -17,10 +17,6 @@ function neomongoosePlugin(schema, options) {
 	var driver = neo4j.driver(options.connectURI, neo4j.auth.basic(options.user, options.password));
 	var session = driver.session();
 
-	session.run('RETURN 1').then(function() {}).catch(function(err) {
-		throw new Error('Cannot connect to Neo4j');
-	});
-
 	schema.statics.insertDocNode = function insertDocNode(config, callback) {
 		var self = this;
 
@@ -343,6 +339,32 @@ function neomongoosePlugin(schema, options) {
 				}
 			})
 		}
+	}
+
+	schema.statics.getNode = function getNode(config, callback) {
+		var self = this;
+
+
+		var doc = config.document;
+
+		self.findOne({_id: doc._id}, function(err, response) {
+			if (err || response === undefined) {
+				return callback(err, undefined, undefined);
+			}
+
+			if(response === null) {
+				return callback({error: "notFound"});
+			}
+			else {
+
+				if(response.DELETED) {
+					return callback({error: "notFound"});
+				}
+
+				return callback(err, response);
+			}
+		})
+
 	}
 
 	function neo4jExec(commandString, successCallback, errorCallback) {
